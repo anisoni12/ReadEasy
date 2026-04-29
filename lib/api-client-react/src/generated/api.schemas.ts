@@ -8,3 +8,48 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface SummarizeBody {
+  /** @minLength 1 */
+  text: string;
+  /** Hint for output language (e.g. 'hi', 'en'). Optional — defaults to matching the input. */
+  language?: string;
+}
+
+export interface ExplainBody {
+  /** @minLength 1 */
+  text: string;
+  language?: string;
+}
+
+export interface VocabularyBody {
+  /** @minLength 1 */
+  word: string;
+  /** Optional surrounding sentence for disambiguation */
+  context?: string;
+}
+
+export interface DetectBookBody {
+  /** @minLength 1 */
+  text: string;
+}
+
+export interface AiTextResponse {
+  text: string;
+}
+
+export interface VocabularyResponse {
+  word: string;
+  meaning: string;
+  example: string;
+  synonyms: string[];
+  /** Hindi meaning when the word is in Devanagari */
+  meaningHindi?: string;
+}
+
+export interface DetectBookResponse {
+  title: string;
+  author: string;
+  genre?: string;
+  language?: string;
+}

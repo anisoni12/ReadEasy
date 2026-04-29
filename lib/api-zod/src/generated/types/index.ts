@@ -6,4 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./aiTextResponse";
+export * from "./detectBookBody";
+export * from "./detectBookResponse";
+export * from "./explainBody";
 export * from "./healthStatus";
+export * from "./summarizeBody";
+export * from "./vocabularyBody";
+export * from "./vocabularyResponse";

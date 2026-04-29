@@ -5,18 +5,30 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  AiTextResponse,
+  DetectBookBody,
+  DetectBookResponse,
+  ExplainBody,
+  HealthStatus,
+  SummarizeBody,
+  VocabularyBody,
+  VocabularyResponse,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +111,347 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Summarize a chapter or page range
+ */
+export const getAiSummarizeUrl = () => {
+  return `/api/ai/summarize`;
+};
+
+export const aiSummarize = async (
+  summarizeBody: SummarizeBody,
+  options?: RequestInit,
+): Promise<AiTextResponse> => {
+  return customFetch<AiTextResponse>(getAiSummarizeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(summarizeBody),
+  });
+};
+
+export const getAiSummarizeMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSummarize>>,
+    TError,
+    { data: BodyType<SummarizeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiSummarize>>,
+  TError,
+  { data: BodyType<SummarizeBody> },
+  TContext
+> => {
+  const mutationKey = ["aiSummarize"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiSummarize>>,
+    { data: BodyType<SummarizeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiSummarize(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiSummarizeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiSummarize>>
+>;
+export type AiSummarizeMutationBody = BodyType<SummarizeBody>;
+export type AiSummarizeMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Summarize a chapter or page range
+ */
+export const useAiSummarize = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSummarize>>,
+    TError,
+    { data: BodyType<SummarizeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiSummarize>>,
+  TError,
+  { data: BodyType<SummarizeBody> },
+  TContext
+> => {
+  return useMutation(getAiSummarizeMutationOptions(options));
+};
+
+/**
+ * @summary Explain a paragraph in simple language
+ */
+export const getAiExplainUrl = () => {
+  return `/api/ai/explain`;
+};
+
+export const aiExplain = async (
+  explainBody: ExplainBody,
+  options?: RequestInit,
+): Promise<AiTextResponse> => {
+  return customFetch<AiTextResponse>(getAiExplainUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(explainBody),
+  });
+};
+
+export const getAiExplainMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiExplain>>,
+    TError,
+    { data: BodyType<ExplainBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiExplain>>,
+  TError,
+  { data: BodyType<ExplainBody> },
+  TContext
+> => {
+  const mutationKey = ["aiExplain"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiExplain>>,
+    { data: BodyType<ExplainBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiExplain(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiExplainMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiExplain>>
+>;
+export type AiExplainMutationBody = BodyType<ExplainBody>;
+export type AiExplainMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Explain a paragraph in simple language
+ */
+export const useAiExplain = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiExplain>>,
+    TError,
+    { data: BodyType<ExplainBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiExplain>>,
+  TError,
+  { data: BodyType<ExplainBody> },
+  TContext
+> => {
+  return useMutation(getAiExplainMutationOptions(options));
+};
+
+/**
+ * @summary Get the meaning, example sentence and synonyms for a word
+ */
+export const getAiVocabularyUrl = () => {
+  return `/api/ai/vocabulary`;
+};
+
+export const aiVocabulary = async (
+  vocabularyBody: VocabularyBody,
+  options?: RequestInit,
+): Promise<VocabularyResponse> => {
+  return customFetch<VocabularyResponse>(getAiVocabularyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vocabularyBody),
+  });
+};
+
+export const getAiVocabularyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiVocabulary>>,
+    TError,
+    { data: BodyType<VocabularyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiVocabulary>>,
+  TError,
+  { data: BodyType<VocabularyBody> },
+  TContext
+> => {
+  const mutationKey = ["aiVocabulary"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiVocabulary>>,
+    { data: BodyType<VocabularyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiVocabulary(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiVocabularyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiVocabulary>>
+>;
+export type AiVocabularyMutationBody = BodyType<VocabularyBody>;
+export type AiVocabularyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Get the meaning, example sentence and synonyms for a word
+ */
+export const useAiVocabulary = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiVocabulary>>,
+    TError,
+    { data: BodyType<VocabularyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiVocabulary>>,
+  TError,
+  { data: BodyType<VocabularyBody> },
+  TContext
+> => {
+  return useMutation(getAiVocabularyMutationOptions(options));
+};
+
+/**
+ * @summary Detect book metadata from extracted text
+ */
+export const getAiDetectBookUrl = () => {
+  return `/api/ai/detect-book`;
+};
+
+export const aiDetectBook = async (
+  detectBookBody: DetectBookBody,
+  options?: RequestInit,
+): Promise<DetectBookResponse> => {
+  return customFetch<DetectBookResponse>(getAiDetectBookUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(detectBookBody),
+  });
+};
+
+export const getAiDetectBookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiDetectBook>>,
+    TError,
+    { data: BodyType<DetectBookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiDetectBook>>,
+  TError,
+  { data: BodyType<DetectBookBody> },
+  TContext
+> => {
+  const mutationKey = ["aiDetectBook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiDetectBook>>,
+    { data: BodyType<DetectBookBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiDetectBook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiDetectBookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiDetectBook>>
+>;
+export type AiDetectBookMutationBody = BodyType<DetectBookBody>;
+export type AiDetectBookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Detect book metadata from extracted text
+ */
+export const useAiDetectBook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiDetectBook>>,
+    TError,
+    { data: BodyType<DetectBookBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiDetectBook>>,
+  TError,
+  { data: BodyType<DetectBookBody> },
+  TContext
+> => {
+  return useMutation(getAiDetectBookMutationOptions(options));
+};

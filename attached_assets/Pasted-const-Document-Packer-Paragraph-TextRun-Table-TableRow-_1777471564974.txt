@@ -1,0 +1,485 @@
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  HeadingLevel, AlignmentType, BorderStyle, WidthType, ShadingType,
+  PageNumber, LevelFormat, TableOfContents
+} = require('docx');
+const fs = require('fs');
+
+const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+const borders = { top: border, bottom: border, left: border, right: border };
+
+const h1 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_1,
+  spacing: { before: 400, after: 200 },
+  children: [new TextRun({ text, bold: true, size: 36, color: "1A1A2E" })]
+});
+
+const h2 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_2,
+  spacing: { before: 300, after: 160 },
+  children: [new TextRun({ text, bold: true, size: 28, color: "16213E" })]
+});
+
+const h3 = (text) => new Paragraph({
+  heading: HeadingLevel.HEADING_3,
+  spacing: { before: 200, after: 120 },
+  children: [new TextRun({ text, bold: true, size: 24, color: "0F3460" })]
+});
+
+const p = (text) => new Paragraph({
+  spacing: { before: 100, after: 100 },
+  children: [new TextRun({ text, size: 22 })]
+});
+
+const bullet = (text, bold = false) => new Paragraph({
+  numbering: { reference: "bullets", level: 0 },
+  spacing: { before: 80, after: 80 },
+  children: [new TextRun({ text, size: 22, bold })]
+});
+
+const numbered = (text) => new Paragraph({
+  numbering: { reference: "numbers", level: 0 },
+  spacing: { before: 80, after: 80 },
+  children: [new TextRun({ text, size: 22 })]
+});
+
+const divider = () => new Paragraph({
+  spacing: { before: 200, after: 200 },
+  border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "E0E0E0", space: 1 } },
+  children: []
+});
+
+const twoColTable = (rows, col1Width = 3000, col2Width = 6360) => new Table({
+  width: { size: 9360, type: WidthType.DXA },
+  columnWidths: [col1Width, col2Width],
+  rows: rows.map(([left, right, isHeader]) => new TableRow({
+    children: [
+      new TableCell({
+        borders,
+        width: { size: col1Width, type: WidthType.DXA },
+        shading: { fill: isHeader ? "1A1A2E" : "F5F5F5", type: ShadingType.CLEAR },
+        margins: { top: 100, bottom: 100, left: 150, right: 150 },
+        children: [new Paragraph({ children: [new TextRun({ text: left, size: 20, bold: isHeader, color: isHeader ? "FFFFFF" : "000000" })] })]
+      }),
+      new TableCell({
+        borders,
+        width: { size: col2Width, type: WidthType.DXA },
+        shading: { fill: isHeader ? "16213E" : "FFFFFF", type: ShadingType.CLEAR },
+        margins: { top: 100, bottom: 100, left: 150, right: 150 },
+        children: [new Paragraph({ children: [new TextRun({ text: right, size: 20, bold: isHeader, color: isHeader ? "FFFFFF" : "000000" })] })]
+      })
+    ]
+  }))
+});
+
+const threeColTable = (rows) => new Table({
+  width: { size: 9360, type: WidthType.DXA },
+  columnWidths: [3120, 3120, 3120],
+  rows: rows.map(([c1, c2, c3, isHeader]) => new TableRow({
+    children: [c1, c2, c3].map(text => new TableCell({
+      borders,
+      width: { size: 3120, type: WidthType.DXA },
+      shading: { fill: isHeader ? "0F3460" : "FFFFFF", type: ShadingType.CLEAR },
+      margins: { top: 100, bottom: 100, left: 150, right: 150 },
+      children: [new Paragraph({ children: [new TextRun({ text, size: 20, bold: isHeader, color: isHeader ? "FFFFFF" : "000000" })] })]
+    }))
+  }))
+});
+
+const doc = new Document({
+  numbering: {
+    config: [
+      {
+        reference: "bullets",
+        levels: [{ level: 0, format: LevelFormat.BULLET, text: "\u2022", alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } } }]
+      },
+      {
+        reference: "numbers",
+        levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } } }]
+      }
+    ]
+  },
+  styles: {
+    default: { document: { run: { font: "Arial", size: 22 } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 36, bold: true, font: "Arial" },
+        paragraph: { spacing: { before: 400, after: 200 }, outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 28, bold: true, font: "Arial" },
+        paragraph: { spacing: { before: 300, after: 160 }, outlineLevel: 1 } },
+      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 24, bold: true, font: "Arial" },
+        paragraph: { spacing: { before: 200, after: 120 }, outlineLevel: 2 } },
+    ]
+  },
+  sections: [{
+    properties: {
+      page: {
+        size: { width: 12240, height: 15840 },
+        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+      }
+    },
+    children: [
+
+      // COVER
+      new Paragraph({ spacing: { before: 1440 }, alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "KitaabAI", bold: true, size: 72, color: "1A1A2E" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200 },
+        children: [new TextRun({ text: "AI-Powered Book Reader for Hindi & English", size: 32, color: "0F3460" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200 },
+        children: [new TextRun({ text: "Product Requirements Document & System Design", size: 26, color: "555555", italics: true })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400 },
+        children: [new TextRun({ text: "Version 1.0  |  April 2026", size: 22, color: "888888" })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200 },
+        children: [new TextRun({ text: "Author: Anish Soni", size: 22, color: "888888" })] }),
+
+      divider(),
+
+      // OVERVIEW
+      h1("1. Product Overview"),
+      h2("1.1 Problem Statement"),
+      p("Millions of readers in India cannot afford paid e-book subscriptions like Kindle Unlimited, Storytel, or Scribd. Free PDFs of books are widely available online but reading them is a frustrating experience — no proper pagination, no dark mode, poor font rendering, and critically, Hindi and other Devanagari-script PDFs render as garbled, unreadable characters on most platforms."),
+      p("There is no free, beautiful, mobile-first reading app that handles both Hindi and English books natively."),
+
+      h2("1.2 The Solution"),
+      p("KitaabAI is a mobile-first web application where users upload any PDF (Hindi or English) and instantly get a Wattpad/Kindle-quality reading experience. The app uses PDF.js for correct Devanagari rendering, provides a clean page-by-page reading UI, and integrates Gemini AI to deliver chapter summaries, paragraph explanations, and vocabulary assistance."),
+
+      h2("1.3 Target Users"),
+      twoColTable([
+        ["User Segment", "Description", true],
+        ["Hindi readers", "Students and adults who read Hindi literature, self-help, and religious books as PDFs"],
+        ["College students", "Students using PDF textbooks who want better reading experience and AI explanations"],
+        ["Casual readers", "People who download free ebooks but hate reading raw PDFs"],
+        ["Non-English speakers", "Users more comfortable in Hindi who struggle with English-only reading apps"],
+      ]),
+
+      h2("1.4 Why This Project Matters"),
+      bullet("500 million+ Hindi speakers in India with almost no native reading app support"),
+      bullet("70% of internet users in India access the web via mobile — most PDF readers are desktop-first"),
+      bullet("Free ebook PDFs are the primary way most Indian readers access books"),
+      bullet("AI layer makes this genuinely differentiated from any existing free tool"),
+
+      divider(),
+
+      // FEATURES
+      h1("2. Feature Specifications"),
+
+      h2("2.1 Core Features (MVP — Week 1 & 2)"),
+
+      h3("F1: PDF Upload & Processing"),
+      bullet("User uploads a PDF from their device (drag & drop or file picker)"),
+      bullet("App processes the PDF using PDF.js in the browser — no server upload needed"),
+      bullet("Correct rendering of Hindi (Devanagari) and English text"),
+      bullet("Support for PDFs up to 50MB"),
+      bullet("Error handling for corrupt or image-only PDFs"),
+
+      h3("F2: Book Reading UI"),
+      bullet("Page-by-page navigation (single page view, like a real book)"),
+      bullet("Swipe left/right on mobile to turn pages"),
+      bullet("Click/tap arrow buttons for page navigation"),
+      bullet("Page number display and jump-to-page input"),
+      bullet("Reading progress bar at the top"),
+      bullet("Zoom in/out controls"),
+
+      h3("F3: Display Modes"),
+      bullet("Light mode (white background, dark text)"),
+      bullet("Dark mode (dark background, light text) — critical for night reading"),
+      bullet("Sepia mode (warm background — easy on eyes for long reading)"),
+      bullet("Font size controls (Small / Medium / Large / Extra Large)"),
+
+      h2("2.2 AI Features (MVP — Week 2)"),
+
+      h3("F4: AI Chapter Summary"),
+      bullet("User selects a page range or chapter"),
+      bullet("Gemini AI generates a concise summary in the same language as the book"),
+      bullet("Displayed in a clean slide-up panel without disrupting reading"),
+
+      h3("F5: AI Paragraph Explainer"),
+      bullet("User long-presses / selects any paragraph"),
+      bullet("Tap 'Explain this' button"),
+      bullet("Gemini explains the selected text in simple language"),
+      bullet("Works for both Hindi and English content"),
+
+      h3("F6: AI Vocabulary Helper"),
+      bullet("User selects a difficult word"),
+      bullet("Gemini provides meaning, usage example, and synonyms"),
+      bullet("For Hindi: provides meaning in both Hindi and English"),
+
+      h2("2.3 Discovery Features (Week 3)"),
+
+      h3("F7: Book Recommendations"),
+      bullet("After uploading a book, app detects title/author using AI"),
+      bullet("Shows similar books using Open Library API (free, no key needed)"),
+      bullet("Each recommendation shows cover, author, and free download link if available"),
+
+      h3("F8: Reading History"),
+      bullet("Recently read books stored in browser localStorage"),
+      bullet("Resume reading from last page automatically"),
+      bullet("Shows reading progress percentage per book"),
+
+      divider(),
+
+      // TECH STACK
+      h1("3. Technical Architecture"),
+
+      h2("3.1 Technology Stack"),
+      twoColTable([
+        ["Layer", "Technology", true],
+        ["Frontend Framework", "React.js (Vite) — fast, widely known, recruiter-friendly"],
+        ["PDF Rendering", "PDF.js by Mozilla — only library that correctly handles Devanagari fonts"],
+        ["AI Integration", "Google Gemini API (gemini-1.5-flash — fast and free tier available)"],
+        ["Styling", "Tailwind CSS — rapid UI development, mobile-first by default"],
+        ["Book Discovery", "Open Library API — completely free, no API key needed"],
+        ["State Management", "React Context + useState — no Redux needed at this scale"],
+        ["Storage", "Browser localStorage — no backend needed for MVP"],
+        ["Deployment", "Vercel — free, one-click deploy from GitHub"],
+        ["Version Control", "GitHub — public repo for portfolio visibility"],
+      ]),
+
+      h2("3.2 Why PDF.js Solves the Hindi Problem"),
+      p("The garbled text issue with Hindi PDFs happens because most PDF parsers cannot decode the custom font encoding used in Devanagari PDFs. PDF.js renders PDFs visually (like a browser renders a webpage) rather than extracting raw text characters, which means it correctly displays whatever is visually encoded in the PDF — including all Hindi fonts."),
+      p("For the AI features (summary, explain), we extract the visible text layer from PDF.js's text content API, which also handles encoding correctly for most modern Hindi PDFs."),
+
+      h2("3.3 System Architecture Diagram"),
+      p("[Browser-side architecture — no backend server required for MVP]"),
+      new Paragraph({ spacing: { before: 200, after: 200 }, children: [] }),
+      twoColTable([
+        ["Component", "Responsibility", true],
+        ["PDFLoader", "Accepts file upload, initializes PDF.js document instance"],
+        ["PDFRenderer", "Renders individual pages as canvas elements using PDF.js"],
+        ["TextExtractor", "Extracts text content from PDF pages for AI processing"],
+        ["ReaderUI", "Page navigation, progress bar, zoom controls"],
+        ["ThemeManager", "Light / Dark / Sepia mode, font size state"],
+        ["AIPanel", "Sends text to Gemini API, displays response in slide-up panel"],
+        ["BookDiscovery", "Calls Open Library API with detected book metadata"],
+        ["HistoryManager", "Reads and writes reading progress to localStorage"],
+      ], 2800, 6560),
+
+      h2("3.4 Data Flow"),
+      numbered("User uploads PDF file via file picker"),
+      numbered("PDFLoader creates a PDF.js document instance in the browser"),
+      numbered("PDFRenderer draws Page 1 onto a canvas element"),
+      numbered("User navigates — PDFRenderer re-renders the requested page"),
+      numbered("User triggers AI feature — TextExtractor pulls text from current page/selection"),
+      numbered("AIPanel sends text + prompt to Gemini API via fetch()"),
+      numbered("Gemini response displayed in slide-up panel overlay"),
+      numbered("Reading progress saved to localStorage on every page change"),
+
+      h2("3.5 Gemini API Integration"),
+      p("All Gemini API calls happen client-side using fetch(). The API key is stored in a .env file and injected at build time via Vite's import.meta.env. For production deployment, the key is set as an environment variable in Vercel."),
+      twoColTable([
+        ["AI Feature", "Prompt Strategy", true],
+        ["Chapter Summary", "Summarize the following text in 5-7 sentences. Match the language of the text (Hindi or English): [extracted text]"],
+        ["Paragraph Explainer", "Explain this paragraph in simple, easy-to-understand language. If it's in Hindi, explain in Hindi. If English, explain in English: [selected text]"],
+        ["Vocabulary Helper", "For the word '[word]': provide 1) simple meaning, 2) one example sentence, 3) two synonyms. If Hindi word, provide meaning in both Hindi and English."],
+        ["Book Detection", "From this text extract: book title, author name, and genre. Return as JSON with keys: title, author, genre. Text: [first page text]"],
+      ], 2500, 6860),
+
+      divider(),
+
+      // UI DESIGN
+      h1("4. UI/UX Design Specifications"),
+
+      h2("4.1 Design Principles"),
+      bullet("Mobile-first — designed for 375px width, scales up to desktop"),
+      bullet("Distraction-free — reading mode hides all UI chrome after 3 seconds of inactivity"),
+      bullet("One-thumb navigation — all core actions reachable with one thumb on mobile"),
+      bullet("Wattpad-inspired — clean, content-forward, no clutter"),
+
+      h2("4.2 Screen Breakdown"),
+
+      h3("Screen 1: Home / Upload Screen"),
+      bullet("Large centered upload area with drag & drop support"),
+      bullet("'Upload a Book' primary CTA button"),
+      bullet("Recent books section below (from localStorage)"),
+      bullet("App name and tagline at top"),
+      bullet("Dark/light mode toggle in top right"),
+
+      h3("Screen 2: Reader Screen"),
+      bullet("Full-screen canvas showing current page"),
+      bullet("Tap center of screen to show/hide navigation controls"),
+      bullet("Bottom bar: Previous | Page X of Y | Next"),
+      bullet("Top bar (on tap): Book title | Theme toggle | Font size | AI button"),
+      bullet("Progress bar thin line at very top of screen"),
+      bullet("Swipe gesture support for page turning on mobile"),
+
+      h3("Screen 3: AI Panel (Slide-up)"),
+      bullet("Slides up from bottom, covers bottom 60% of screen"),
+      bullet("Shows AI feature tabs: Summary | Explain | Vocabulary"),
+      bullet("Loading spinner while Gemini processes"),
+      bullet("Response displayed in readable card format"),
+      bullet("Dismiss by swiping down or tapping X"),
+
+      h3("Screen 4: Book Discovery (Side Panel)"),
+      bullet("Slides in from right after book is processed"),
+      bullet("Shows detected book title and author"),
+      bullet("Grid of 6 similar book recommendations"),
+      bullet("Each card: cover image, title, author, 'Find Free PDF' button"),
+
+      h2("4.3 Color Palette"),
+      threeColTable([
+        ["Mode", "Background", "Text", true],
+        ["Light", "#FFFFFF", "#1A1A2E"],
+        ["Dark", "#121212", "#E0E0E0"],
+        ["Sepia", "#F5E6C8", "#3B2A1A"],
+      ]),
+
+      h2("4.4 Typography"),
+      twoColTable([
+        ["Element", "Specification", true],
+        ["Book content (English)", "Georgia or Merriweather serif — best for long-form reading"],
+        ["Book content (Hindi)", "Noto Sans Devanagari — Google font, free, perfect Hindi rendering"],
+        ["UI elements", "Inter — clean, modern sans-serif"],
+        ["Font sizes", "Small: 14px | Medium: 16px | Large: 18px | XL: 20px"],
+      ]),
+
+      divider(),
+
+      // PROJECT PLAN
+      h1("5. Development Roadmap"),
+
+      h2("5.1 Week-by-Week Plan"),
+      twoColTable([
+        ["Week", "Deliverables", true],
+        ["Week 1 — Foundation", "Project setup with Vite + React + Tailwind. PDF.js integration. Basic PDF upload and page render. Hindi text rendering verified. Light/dark/sepia themes. Font size controls. Mobile-responsive layout."],
+        ["Week 2 — AI Layer", "Gemini API integration. Chapter summary feature. Paragraph explainer. Vocabulary helper. AI panel slide-up UI. Error handling for API failures. Loading states."],
+        ["Week 3 — Polish & Ship", "Book detection and Open Library recommendations. Reading history with localStorage. Reading progress persistence. Performance optimization. Deploy to Vercel. Write README. Record demo video."],
+      ], 2000, 7360),
+
+      h2("5.2 Technical Milestones"),
+      numbered("PDF.js renders a Hindi book correctly — no garbled text"),
+      numbered("Page navigation works smoothly on mobile with swipe"),
+      numbered("Gemini API returns a summary for a selected chapter"),
+      numbered("Dark mode works perfectly and preference is saved"),
+      numbered("App is deployed live on Vercel with a public URL"),
+      numbered("README has screenshots, tech stack, and setup instructions"),
+
+      divider(),
+
+      // FILE STRUCTURE
+      h1("6. Project File Structure"),
+      p("The following structure should be set up from Day 1 for clean, maintainable code:"),
+      new Paragraph({
+        spacing: { before: 160, after: 160 },
+        children: [new TextRun({
+          text:
+`kitaabai/
+├── public/
+│   └── favicon.ico
+├── src/
+│   ├── components/
+│   │   ├── Upload/
+│   │   │   ├── UploadScreen.jsx
+│   │   │   └── RecentBooks.jsx
+│   │   ├── Reader/
+│   │   │   ├── PDFViewer.jsx
+│   │   │   ├── PageNavigation.jsx
+│   │   │   ├── ReaderControls.jsx
+│   │   │   └── ProgressBar.jsx
+│   │   ├── AI/
+│   │   │   ├── AIPanel.jsx
+│   │   │   ├── SummaryTab.jsx
+│   │   │   ├── ExplainTab.jsx
+│   │   │   └── VocabTab.jsx
+│   │   └── Discovery/
+│   │       ├── BookDiscovery.jsx
+│   │       └── BookCard.jsx
+│   ├── hooks/
+│   │   ├── usePDF.js
+│   │   ├── useTheme.js
+│   │   ├── useReadingHistory.js
+│   │   └── useGemini.js
+│   ├── utils/
+│   │   ├── pdfUtils.js
+│   │   ├── geminiAPI.js
+│   │   └── openLibraryAPI.js
+│   ├── context/
+│   │   └── AppContext.jsx
+│   ├── App.jsx
+│   └── main.jsx
+├── .env
+├── .gitignore
+├── package.json
+├── tailwind.config.js
+└── README.md`,
+          font: "Courier New", size: 18
+        })]
+      }),
+
+      divider(),
+
+      // GITHUB & PORTFOLIO
+      h1("7. GitHub & Portfolio Strategy"),
+
+      h2("7.1 Repository Setup"),
+      bullet("Public repository named 'kitaabai' on GitHub"),
+      bullet("Meaningful commit messages — one commit per feature, not one giant commit"),
+      bullet("Use branches: main (stable), dev (working), feature/pdf-viewer, feature/ai-panel etc."),
+      bullet("Add topics to repo: react, pdf-reader, gemini-ai, hindi, open-source, reading-app"),
+
+      h2("7.2 README Must Include"),
+      bullet("Live demo link (Vercel URL) — first line of README"),
+      bullet("2-3 screenshots showing light mode, dark mode, and AI panel"),
+      bullet("Tech stack badges (React, Tailwind, Gemini AI, Vercel)"),
+      bullet("Problem statement in 2 sentences"),
+      bullet("Feature list"),
+      bullet("Setup instructions (npm install, add API key, npm run dev)"),
+
+      h2("7.3 What to Tell Recruiters"),
+      p("'I built KitaabAI — a mobile-first AI reading app that solves a real problem for Hindi and English readers who can't afford e-book subscriptions. It uses PDF.js for correct Devanagari rendering (a hard technical problem), integrates Google's Gemini AI for chapter summaries and explanations, and is deployed on Vercel. Built in 3 weeks with React and Tailwind.'"),
+
+      divider(),
+
+      // RISKS
+      h1("8. Risks & Mitigations"),
+      twoColTable([
+        ["Risk", "Mitigation", true],
+        ["Hindi PDFs with image-scanned pages (not text)", "Detect image-only PDFs early, show user a clear message: 'This PDF is scanned. AI features unavailable but reading UI works.'"],
+        ["Gemini API rate limits on free tier", "Cache AI responses in localStorage. Add debounce on AI requests. Show friendly error if limit hit."],
+        ["Large PDFs slow to load", "Load only 3 pages at a time (lazy loading). Show skeleton loader while pages render."],
+        ["API key exposed in frontend", "Use Vite env variables. Add .env to .gitignore. Document this clearly in README for anyone forking."],
+        ["Mobile swipe conflicts with browser navigation", "Use touch event preventDefault carefully. Test on real Android and iOS devices."],
+      ]),
+
+      divider(),
+
+      // SUCCESS METRICS
+      h1("9. Success Metrics"),
+      p("Since this is a portfolio project, success is measured by:"),
+      twoColTable([
+        ["Metric", "Target", true],
+        ["GitHub Stars", "10+ stars within first month of sharing"],
+        ["Live Demo", "Working Vercel deployment accessible 24/7"],
+        ["Hindi PDF test", "5 different Hindi PDFs render correctly without garbled text"],
+        ["AI response time", "Gemini returns summary in under 5 seconds"],
+        ["Mobile usability", "All features usable one-handed on a 375px screen"],
+        ["Code quality", "Clean component structure, no console errors, proper loading states"],
+      ]),
+
+      divider(),
+
+      // APPENDIX
+      h1("10. Appendix — Key APIs & Resources"),
+      twoColTable([
+        ["Resource", "Details", true],
+        ["PDF.js", "mozilla.github.io/pdf.js — include via CDN or npm install pdfjs-dist"],
+        ["Gemini API", "ai.google.dev — use gemini-1.5-flash model, free tier: 15 requests/minute"],
+        ["Open Library API", "openlibrary.org/dev/docs/api — completely free, no key, search by title/author"],
+        ["Noto Sans Devanagari", "fonts.google.com/noto/specimen/Noto+Sans+Devanagari — free Google font for Hindi"],
+        ["Tailwind CSS", "tailwindcss.com — install via npm, configure in tailwind.config.js"],
+        ["Vercel Deploy", "vercel.com — connect GitHub repo, add VITE_GEMINI_KEY env variable, deploy"],
+      ]),
+
+      new Paragraph({ spacing: { before: 800 }, alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "— End of Document —", size: 20, color: "888888", italics: true })] }),
+    ]
+  }]
+});
+
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync("/home/claude/KitaabAI_PRD.docx", buffer);
+  console.log("Done!");
+});

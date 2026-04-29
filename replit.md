@@ -24,4 +24,9 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Artifacts
+
+- **readeasy** (web, `/`) — Mobile-first PDF reader for Hindi & English. PDF.js rendering with swipe navigation, light/dark/sepia themes, font sizing. AI features (chapter summary, paragraph explain, vocabulary helper, book detection) via Gemini through `/api/ai/*`. Open Library recommendations. PDF bytes stored in IndexedDB (`idb-keyval`), metadata in localStorage. No accounts, no DB.
+- **api-server** (api, `/api`) — Hosts `/api/ai/{summarize,explain,vocabulary,detect-book}` using `@workspace/integrations-gemini-ai` (Gemini 2.5 Flash). Esbuild bundles `@google/genai` (do not externalize).
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

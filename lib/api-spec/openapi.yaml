@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: ai
+    description: AI-powered reading assistance via Gemini
 paths:
   /healthz:
     get:
@@ -24,6 +26,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ai/summarize:
+    post:
+      operationId: aiSummarize
+      tags: [ai]
+      summary: Summarize a chapter or page range
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SummarizeBody"
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTextResponse"
+  /ai/explain:
+    post:
+      operationId: aiExplain
+      tags: [ai]
+      summary: Explain a paragraph in simple language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExplainBody"
+      responses:
+        "200":
+          description: Explanation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiTextResponse"
+  /ai/vocabulary:
+    post:
+      operationId: aiVocabulary
+      tags: [ai]
+      summary: Get the meaning, example sentence and synonyms for a word
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VocabularyBody"
+      responses:
+        "200":
+          description: Vocabulary entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VocabularyResponse"
+  /ai/detect-book:
+    post:
+      operationId: aiDetectBook
+      tags: [ai]
+      summary: Detect book metadata from extracted text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectBookBody"
+      responses:
+        "200":
+          description: Detected book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectBookResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +107,85 @@ components:
           type: string
       required:
         - status
-
+    SummarizeBody:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          description: "Hint for output language (e.g. 'hi', 'en'). Optional — defaults to matching the input."
+      required:
+        - text
+    ExplainBody:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+        language:
+          type: string
+      required:
+        - text
+    VocabularyBody:
+      type: object
+      properties:
+        word:
+          type: string
+          minLength: 1
+        context:
+          type: string
+          description: Optional surrounding sentence for disambiguation
+      required:
+        - word
+    DetectBookBody:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+      required:
+        - text
+    AiTextResponse:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    VocabularyResponse:
+      type: object
+      properties:
+        word:
+          type: string
+        meaning:
+          type: string
+        example:
+          type: string
+        synonyms:
+          type: array
+          items:
+            type: string
+        meaningHindi:
+          type: string
+          description: Hindi meaning when the word is in Devanagari
+      required:
+        - word
+        - meaning
+        - example
+        - synonyms
+    DetectBookResponse:
+      type: object
+      properties:
+        title:
+          type: string
+        author:
+          type: string
+        genre:
+          type: string
+        language:
+          type: string
+      required:
+        - title
+        - author

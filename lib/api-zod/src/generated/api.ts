@@ -14,3 +14,72 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Summarize a chapter or page range
+ */
+
+export const AiSummarizeBody = zod.object({
+  text: zod.string().min(1),
+  language: zod
+    .string()
+    .optional()
+    .describe(
+      "Hint for output language (e.g. 'hi', 'en'). Optional — defaults to matching the input.",
+    ),
+});
+
+export const AiSummarizeResponse = zod.object({
+  text: zod.string(),
+});
+
+/**
+ * @summary Explain a paragraph in simple language
+ */
+
+export const AiExplainBody = zod.object({
+  text: zod.string().min(1),
+  language: zod.string().optional(),
+});
+
+export const AiExplainResponse = zod.object({
+  text: zod.string(),
+});
+
+/**
+ * @summary Get the meaning, example sentence and synonyms for a word
+ */
+
+export const AiVocabularyBody = zod.object({
+  word: zod.string().min(1),
+  context: zod
+    .string()
+    .optional()
+    .describe("Optional surrounding sentence for disambiguation"),
+});
+
+export const AiVocabularyResponse = zod.object({
+  word: zod.string(),
+  meaning: zod.string(),
+  example: zod.string(),
+  synonyms: zod.array(zod.string()),
+  meaningHindi: zod
+    .string()
+    .optional()
+    .describe("Hindi meaning when the word is in Devanagari"),
+});
+
+/**
+ * @summary Detect book metadata from extracted text
+ */
+
+export const AiDetectBookBody = zod.object({
+  text: zod.string().min(1),
+});
+
+export const AiDetectBookResponse = zod.object({
+  title: zod.string(),
+  author: zod.string(),
+  genre: zod.string().optional(),
+  language: zod.string().optional(),
+});
