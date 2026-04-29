@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useBooks } from '@/hooks/use-books';
 import { getPdfBytes } from '@/lib/idb';
@@ -39,6 +39,7 @@ export default function Reader() {
   const { isFocused, enter: enterFocus, exit: exitFocus } = useFocusMode();
 
   const detectBook = useAiDetectBook();
+  const detectionAttemptedRef = useRef<string | null>(null);
 
   // Load PDF
   useEffect(() => {
@@ -71,31 +72,46 @@ export default function Reader() {
   // Extract text and detect book
   useEffect(() => {
     if (!pdfDoc) return;
-    
+
+    let cancelled = false;
     const extractAndDetect = async () => {
       const text = await extractTextFromPage(pdfDoc, currentPage);
+      if (cancelled) return;
       setCurrentPageText(text);
-      
-      // Auto-detect book metadata on first page if author is unknown
-      if (currentPage === 1 && book?.author === 'Unknown Author') {
+
+      // Auto-detect book metadata once per book on the first page.
+      const shouldDetect =
+        currentPage === 1 &&
+        bookId &&
+        detectionAttemptedRef.current !== bookId &&
+        book?.author === 'Unknown Author' &&
+        text.trim().length >= 20;
+
+      if (shouldDetect) {
+        detectionAttemptedRef.current = bookId;
         try {
           const res = await detectBook.mutateAsync({ data: { text: text.substring(0, 1000) } });
-          if (res && res.title) {
-            updateBookMetadata(bookId!, { 
-              title: res.title, 
-              author: res.author 
+          if (cancelled) return;
+          if (res && res.title && res.title !== 'Untitled') {
+            updateBookMetadata(bookId, {
+              title: res.title,
+              author: res.author,
             });
-            // Give it a moment, then show discovery
-            setTimeout(() => setIsDiscoveryOpen(true), 2000);
+            setTimeout(() => {
+              if (!cancelled) setIsDiscoveryOpen(true);
+            }, 2000);
           }
         } catch (err) {
           console.error("Detection failed", err);
         }
       }
     };
-    
+
     extractAndDetect();
-  }, [pdfDoc, currentPage, book?.author, bookId, updateBookMetadata]);
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, currentPage, book?.author, bookId, updateBookMetadata, detectBook]);
 
   // Save progress
   useEffect(() => {

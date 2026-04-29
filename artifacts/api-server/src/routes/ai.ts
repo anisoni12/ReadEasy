@@ -100,7 +100,13 @@ Only return the JSON, no markdown.${ctx}`;
 
 router.post("/ai/detect-book", async (req, res, next) => {
   try {
-    const body = AiDetectBookBody.parse(req.body);
+    const rawText = typeof req.body?.text === "string" ? req.body.text : "";
+    // No usable text on page 1 (e.g. image-only cover) — respond with neutral defaults.
+    if (rawText.trim().length < 20) {
+      res.json({ title: "Untitled", author: "Unknown" });
+      return;
+    }
+    const body = AiDetectBookBody.parse({ text: rawText });
     const prompt = `From the following extracted text from the first page(s) of a book, infer:
 - "title": the book title
 - "author": the author's name
