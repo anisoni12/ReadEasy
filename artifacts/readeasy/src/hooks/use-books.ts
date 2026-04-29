@@ -40,56 +40,60 @@ export function useBooks() {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  const persist = (next: Book[]) => {
+    try {
+      localStorage.setItem(BOOKS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.error('Failed to persist books', e);
+    }
+  };
+
   const addBook = useCallback(async (
-    id: string, 
-    file: File, 
+    id: string,
+    file: File,
     metadata: Omit<Book, 'id' | 'addedAt' | 'lastReadAt'>
   ) => {
     const buffer = await file.arrayBuffer();
     await savePdfBytes(id, buffer);
-    
+
     const newBook: Book = {
       ...metadata,
       id,
       addedAt: Date.now(),
       lastReadAt: Date.now(),
     };
-    
-    setBooks(prev => {
-      const updated = [newBook, ...prev.filter(b => b.id !== id)];
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+
+    // Write to localStorage SYNCHRONOUSLY first so navigation can read it immediately,
+    // even if this component unmounts before React flushes the state updater.
+    const current = readBooksFromStorage();
+    const updated = [newBook, ...current.filter((b) => b.id !== id)];
+    persist(updated);
+    setBooks(updated);
     return newBook;
   }, []);
 
   const updateBookProgress = useCallback((id: string, lastPage: number) => {
-    setBooks(prev => {
-      const updated = prev.map(b => 
-        b.id === id ? { ...b, lastPage, lastReadAt: Date.now() } : b
-      );
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    const current = readBooksFromStorage();
+    const updated = current.map((b) =>
+      b.id === id ? { ...b, lastPage, lastReadAt: Date.now() } : b
+    );
+    persist(updated);
+    setBooks(updated);
   }, []);
 
   const updateBookMetadata = useCallback((id: string, updates: Partial<Book>) => {
-    setBooks(prev => {
-      const updated = prev.map(b => 
-        b.id === id ? { ...b, ...updates } : b
-      );
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    const current = readBooksFromStorage();
+    const updated = current.map((b) => (b.id === id ? { ...b, ...updates } : b));
+    persist(updated);
+    setBooks(updated);
   }, []);
 
   const deleteBook = useCallback(async (id: string) => {
     await deletePdfBytes(id);
-    setBooks(prev => {
-      const updated = prev.filter(b => b.id !== id);
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    const current = readBooksFromStorage();
+    const updated = current.filter((b) => b.id !== id);
+    persist(updated);
+    setBooks(updated);
   }, []);
 
   const getBook = useCallback((id: string) => {

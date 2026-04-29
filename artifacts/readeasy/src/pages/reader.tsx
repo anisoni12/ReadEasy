@@ -10,8 +10,9 @@ import { DiscoveryPanel } from '@/components/Reader/discovery-panel';
 import { NotesPanel } from '@/components/Reader/notes-panel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle, Highlighter } from 'lucide-react';
+import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle, Highlighter, Focus, X as XIcon } from 'lucide-react';
 import { useNotes } from '@/hooks/use-notes';
+import { useFocusMode } from '@/hooks/use-focus-mode';
 import { useAiDetectBook } from '@workspace/api-client-react';
 
 export default function Reader() {
@@ -34,7 +35,9 @@ export default function Reader() {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const { notes } = useNotes(bookId);
   const pageHasNotes = notes.some((n) => n.page === currentPage);
-  
+
+  const { isFocused, enter: enterFocus, exit: exitFocus } = useFocusMode();
+
   const detectBook = useAiDetectBook();
 
   // Load PDF
@@ -104,13 +107,16 @@ export default function Reader() {
   // Auto-hide chrome
   useEffect(() => {
     if (!showChrome) return;
-    
+    if (isFocused) {
+      setShowChrome(false);
+      return;
+    }
     const timer = setTimeout(() => {
       setShowChrome(false);
     }, 3000);
-    
+
     return () => clearTimeout(timer);
-  }, [showChrome, currentPage]);
+  }, [showChrome, currentPage, isFocused]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -128,7 +134,10 @@ export default function Reader() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [totalPages]);
 
-  const toggleChrome = () => setShowChrome(!showChrome);
+  const toggleChrome = () => {
+    if (isFocused) return;
+    setShowChrome((s) => !s);
+  };
   const cycleFontSize = () => {
     const sizes: typeof fontSize[] = ['small', 'medium', 'large', 'xlarge'];
     const idx = sizes.indexOf(fontSize);
@@ -151,11 +160,11 @@ export default function Reader() {
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Coffee;
 
   return (
-    <div className="relative min-h-[100dvh] w-full max-w-md mx-auto md:max-w-4xl bg-background overflow-hidden flex flex-col shadow-2xl">
+    <div className="relative min-h-[100dvh] w-full mx-auto md:max-w-4xl bg-background overflow-hidden flex flex-col shadow-2xl">
       {/* Top Chrome */}
       <div 
         className={`absolute top-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 transition-transform duration-300 ${
-          showChrome ? 'translate-y-0' : '-translate-y-full'
+          showChrome && !isFocused ? 'translate-y-0' : '-translate-y-full'
         }`}
       >
         <div className="h-14 px-2 flex items-center justify-between">
@@ -165,7 +174,7 @@ export default function Reader() {
           
           <div className="flex-1 px-2 overflow-hidden flex flex-col items-center">
             <h1 className="font-serif font-medium text-sm truncate w-full text-center text-foreground">
-              {book?.title || 'Loading...'}
+              {book?.title || (pdfDoc ? 'Untitled book' : 'Loading...')}
             </h1>
             <p className="text-[10px] text-muted-foreground truncate w-full text-center">
               {book?.author || ''}
@@ -173,6 +182,9 @@ export default function Reader() {
           </div>
           
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={enterFocus} className="rounded-full text-foreground/70" aria-label="Focus mode">
+              <Focus size={18} />
+            </Button>
             <Button variant="ghost" size="icon" onClick={cycleFontSize} className="rounded-full text-foreground/70">
               <Type size={18} />
             </Button>
@@ -189,7 +201,7 @@ export default function Reader() {
         className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative"
         onClick={toggleChrome}
       >
-        <div className="min-h-full flex flex-col items-center justify-center p-4">
+        <div className={`min-h-full flex flex-col items-center justify-center ${isFocused ? 'p-0' : 'px-1 py-2'}`}>
           <PdfRenderer 
             pdfDocument={pdfDoc} 
             pageNumber={currentPage} 
@@ -198,8 +210,26 @@ export default function Reader() {
         </div>
       </div>
 
+      {/* Focus mode exit affordance */}
+      {isFocused && (
+        <button
+          onClick={exitFocus}
+          className="absolute top-3 right-3 z-30 w-9 h-9 rounded-full bg-foreground/10 hover:bg-foreground/20 backdrop-blur-md flex items-center justify-center text-foreground/70 transition"
+          aria-label="Exit focus mode"
+        >
+          <XIcon size={16} />
+        </button>
+      )}
+
+      {/* Subtle page indicator in focus mode */}
+      {isFocused && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-foreground/10 backdrop-blur-md text-[11px] font-serif text-foreground/60 pointer-events-none">
+          {currentPage} / {totalPages}
+        </div>
+      )}
+
       {/* Floating action buttons */}
-      <div className={`absolute bottom-20 right-6 z-10 flex flex-col gap-3 transition-all duration-300 ${showChrome ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+      <div className={`absolute bottom-20 right-6 z-10 flex flex-col gap-3 transition-all duration-300 ${showChrome && !isFocused ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
         <Button
           size="lg"
           variant="secondary"
@@ -230,7 +260,7 @@ export default function Reader() {
       {/* Bottom Chrome */}
       <div 
         className={`absolute bottom-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-t border-border/50 pb-safe transition-transform duration-300 ${
-          showChrome ? 'translate-y-0' : 'translate-y-full'
+          showChrome && !isFocused ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
         <div className="h-16 px-4 flex items-center justify-between">
