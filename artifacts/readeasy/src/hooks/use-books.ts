@@ -14,24 +14,31 @@ export interface Book {
 
 const BOOKS_KEY = 'readeasy:books';
 
+function readBooksFromStorage(): Book[] {
+  if (typeof window === 'undefined') return [];
+  const stored = localStorage.getItem(BOOKS_KEY);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch (e) {
+    console.error('Failed to parse books', e);
+    return [];
+  }
+}
+
 export function useBooks() {
-  const [books, setBooks] = useState<Book[]>([]);
+  const [books, setBooks] = useState<Book[]>(() => readBooksFromStorage());
 
+  // Sync across tabs / hooks
   useEffect(() => {
-    const stored = localStorage.getItem(BOOKS_KEY);
-    if (stored) {
-      try {
-        setBooks(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to parse books', e);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === BOOKS_KEY) {
+        setBooks(readBooksFromStorage());
       }
-    }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
-
-  const saveBooks = (newBooks: Book[]) => {
-    setBooks(newBooks);
-    localStorage.setItem(BOOKS_KEY, JSON.stringify(newBooks));
-  };
 
   const addBook = useCallback(async (
     id: string, 

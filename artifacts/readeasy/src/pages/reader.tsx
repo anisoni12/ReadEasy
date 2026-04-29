@@ -7,9 +7,11 @@ import { PdfRenderer } from '@/components/Reader/pdf-renderer';
 import { useTheme, FONT_SCALE_MAP } from '@/hooks/use-theme';
 import { AIPanel } from '@/components/Reader/ai-panel';
 import { DiscoveryPanel } from '@/components/Reader/discovery-panel';
+import { NotesPanel } from '@/components/Reader/notes-panel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle, Highlighter } from 'lucide-react';
+import { useNotes } from '@/hooks/use-notes';
 import { useAiDetectBook } from '@workspace/api-client-react';
 
 export default function Reader() {
@@ -18,7 +20,7 @@ export default function Reader() {
   const { getBook, updateBookProgress, updateBookMetadata } = useBooks();
   const { theme, cycleTheme, fontSize, changeFontSize } = useTheme();
   
-  const [book] = useState(() => getBook(bookId || ''));
+  const book = getBook(bookId || '');
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(book?.lastPage || 1);
   const [totalPages, setTotalPages] = useState(book?.totalPages || 1);
@@ -29,6 +31,9 @@ export default function Reader() {
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [currentPageText, setCurrentPageText] = useState('');
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const { notes } = useNotes(bookId);
+  const pageHasNotes = notes.some((n) => n.page === currentPage);
   
   const detectBook = useAiDetectBook();
 
@@ -193,8 +198,23 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* Floating AI Button */}
-      <div className={`absolute bottom-20 right-6 z-10 transition-all duration-300 ${showChrome ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+      {/* Floating action buttons */}
+      <div className={`absolute bottom-20 right-6 z-10 flex flex-col gap-3 transition-all duration-300 ${showChrome ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <Button
+          size="lg"
+          variant="secondary"
+          className="rounded-full shadow-lg h-12 w-12 px-0 relative"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsNotesOpen(true);
+          }}
+          aria-label="Highlights and notes"
+        >
+          <Highlighter size={20} className="text-amber-600 dark:text-amber-400" />
+          {pageHasNotes && (
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" />
+          )}
+        </Button>
         <Button 
           size="lg" 
           className="rounded-full shadow-lg h-14 w-14 px-0 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -255,6 +275,19 @@ export default function Reader() {
           isOpen={isDiscoveryOpen}
           onOpenChange={setIsDiscoveryOpen}
           title={book.title}
+        />
+      )}
+
+      {bookId && (
+        <NotesPanel
+          isOpen={isNotesOpen}
+          onOpenChange={setIsNotesOpen}
+          bookId={bookId}
+          currentPage={currentPage}
+          onJumpToPage={(p) => {
+            setCurrentPage(p);
+            setShowChrome(true);
+          }}
         />
       )}
     </div>
