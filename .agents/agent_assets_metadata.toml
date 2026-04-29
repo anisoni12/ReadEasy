@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7Fx6kO-zhiOF6cq4qL9qQ"
+uri = "file://PROJECT_GUIDE.md"
+type = "text"
+title = "ReadEasy — Full Project Guide"
