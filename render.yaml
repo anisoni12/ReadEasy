@@ -1,0 +1,9 @@
+services:
+  - type: static
+    name: readeasy-web
+    rootDir: artifacts/readeasy
+    buildCommand: npm install -g pnpm@10.33.2 && pnpm install --ignore-scripts && pnpm run build
+    staticPublishPath: dist/public
+    envVars:
+      - key: API_PROXY_TARGET
+        value: https://readeasy-75d2.onrender.com
