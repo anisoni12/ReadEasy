@@ -36,6 +36,10 @@ export default function Reader() {
   const { notes } = useNotes(bookId);
   const pageHasNotes = notes.some((n) => n.page === currentPage);
 
+  const [showFocusControls, setShowFocusControls] = useState(false);
+  const [showFontPicker, setShowFontPicker] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
   const { isFocused, enter: enterFocus, exit: exitFocus } = useFocusMode();
 
   const detectBook = useAiDetectBook();
@@ -95,7 +99,7 @@ export default function Reader() {
           if (res && res.title && res.title !== 'Untitled') {
             updateBookMetadata(bookId, {
               title: res.title,
-              author: res.author,
+              author: res.author || 'Unknown Author',
             });
             setTimeout(() => {
               if (!cancelled) setIsDiscoveryOpen(true);
@@ -134,6 +138,16 @@ export default function Reader() {
     return () => clearTimeout(timer);
   }, [showChrome, currentPage, isFocused]);
 
+  // Auto-hide focus controls
+  useEffect(() => {
+    if (!showFocusControls) return;
+    const timer = setTimeout(() => {
+      setShowFocusControls(false);
+      setShowFontPicker(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [showFocusControls, currentPage, fontSize]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -151,9 +165,41 @@ export default function Reader() {
   }, [totalPages]);
 
   const toggleChrome = () => {
-    if (isFocused) return;
+    if (isFocused) {
+      setShowFocusControls((s) => {
+        if (s) setShowFontPicker(false);
+        return !s;
+      });
+      return;
+    }
     setShowChrome((s) => !s);
   };
+  
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const touchEndX = e.changedTouches[0].screenX;
+    const diff = touchStartX.current - touchEndX;
+
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        // swipe left -> next page
+        setCurrentPage(p => Math.min(p + 1, totalPages));
+        if (isFocused) setShowFocusControls(true);
+        else setShowChrome(true);
+      } else {
+        // swipe right -> prev page
+        setCurrentPage(p => Math.max(p - 1, 1));
+        if (isFocused) setShowFocusControls(true);
+        else setShowChrome(true);
+      }
+    }
+    touchStartX.current = null;
+  };
+
   const cycleFontSize = () => {
     const sizes: typeof fontSize[] = ['small', 'medium', 'large', 'xlarge'];
     const idx = sizes.indexOf(fontSize);
@@ -214,8 +260,10 @@ export default function Reader() {
 
       {/* Main Reader Area */}
       <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative"
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative touch-pan-y"
         onClick={toggleChrome}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div className={`min-h-full flex flex-col items-center justify-center ${isFocused ? 'p-0' : 'px-1 py-2'}`}>
           <PdfRenderer 
@@ -230,7 +278,7 @@ export default function Reader() {
       {isFocused && (
         <button
           onClick={exitFocus}
-          className="absolute top-3 right-3 z-30 w-9 h-9 rounded-full bg-foreground/10 hover:bg-foreground/20 backdrop-blur-md flex items-center justify-center text-foreground/70 transition"
+          className={`absolute top-3 right-3 z-30 w-9 h-9 rounded-full bg-foreground/10 hover:bg-foreground/20 backdrop-blur-md flex items-center justify-center text-foreground/70 transition-opacity duration-300 ${showFocusControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           aria-label="Exit focus mode"
         >
           <XIcon size={16} />
@@ -239,8 +287,50 @@ export default function Reader() {
 
       {/* Subtle page indicator in focus mode */}
       {isFocused && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-foreground/10 backdrop-blur-md text-[11px] font-serif text-foreground/60 pointer-events-none">
+        <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-foreground/10 backdrop-blur-md text-[11px] font-serif transition-opacity duration-300 ${showFocusControls ? 'text-foreground/90 opacity-100' : 'text-foreground/40 opacity-0 pointer-events-none'}`}>
           {currentPage} / {totalPages}
+        </div>
+      )}
+
+      {/* Focus mode controls */}
+      {isFocused && (
+        <div className={`absolute bottom-12 right-4 flex flex-col items-end gap-2 z-30 transition-opacity duration-300 ${showFocusControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          {showFontPicker && (
+            <div className="flex flex-col gap-2 p-2 bg-background/90 backdrop-blur-md rounded-full border border-border/50 shadow-lg">
+              {(['small', 'medium', 'large', 'xlarge'] as const).map(size => (
+                <Button 
+                  key={size}
+                  variant={fontSize === size ? 'default' : 'ghost'} 
+                  size="icon" 
+                  className="w-10 h-10 rounded-full" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    changeFontSize(size); 
+                    setShowFocusControls(true);
+                  }}
+                >
+                  <span className={
+                    size === 'small' ? 'text-xs' : 
+                    size === 'medium' ? 'text-sm' : 
+                    size === 'large' ? 'text-base' : 'text-lg'
+                  }>A</span>
+                </Button>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            size="icon"
+            className="rounded-full shadow-lg h-12 w-12 bg-background/90 backdrop-blur-md border border-border/50"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFontPicker(p => !p);
+              setShowFocusControls(true);
+            }}
+            aria-label="Adjust font size"
+          >
+            <Type size={20} className="text-foreground/70" />
+          </Button>
         </div>
       )}
 

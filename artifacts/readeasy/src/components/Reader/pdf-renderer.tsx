@@ -44,27 +44,48 @@ export function PdfRenderer({ pdfDocument, pageNumber, scale, onPageLoad }: PdfR
         
         // Handle high DPI displays
         const outputScale = window.devicePixelRatio || 1;
-        canvas.width = finalViewport.width * outputScale;
-        canvas.height = finalViewport.height * outputScale;
-        canvas.style.width = `${finalViewport.width}px`;
-        canvas.style.height = `${finalViewport.height}px`;
+
+        // Create an offscreen canvas for double-buffering
+        const offscreenCanvas = document.createElement('canvas');
+        const offscreenContext = offscreenCanvas.getContext('2d', { willReadFrequently: true });
         
-        context.scale(outputScale, outputScale);
+        if (!offscreenContext) return;
+        
+        offscreenCanvas.width = finalViewport.width * outputScale;
+        offscreenCanvas.height = finalViewport.height * outputScale;
+        offscreenContext.scale(outputScale, outputScale);
 
         if (renderTaskRef.current) {
           renderTaskRef.current.cancel();
         }
 
         const renderContext = {
-          canvasContext: context,
+          canvasContext: offscreenContext,
           viewport: finalViewport,
-          canvas,
+          canvas: offscreenCanvas,
         };
 
         const renderTask = page.render(renderContext);
         renderTaskRef.current = renderTask;
         
         await renderTask.promise;
+        
+        // Swap offscreen canvas to visible canvas
+        if (isMounted && canvasRef.current) {
+          const visibleCanvas = canvasRef.current;
+          const visibleContext = visibleCanvas.getContext('2d');
+          
+          if (visibleContext) {
+            visibleCanvas.width = finalViewport.width * outputScale;
+            visibleCanvas.height = finalViewport.height * outputScale;
+            visibleCanvas.style.width = `${finalViewport.width}px`;
+            visibleCanvas.style.height = `${finalViewport.height}px`;
+            
+            // Clear and draw the completely rendered offscreen canvas
+            visibleContext.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
+            visibleContext.drawImage(offscreenCanvas, 0, 0);
+          }
+        }
         
         if (isMounted && onPageLoad) {
           onPageLoad();
@@ -110,7 +131,7 @@ export function PdfRenderer({ pdfDocument, pageNumber, scale, onPageLoad }: PdfR
       <canvas 
         ref={canvasRef} 
         className="max-w-full shadow-sm bg-white dark:bg-zinc-100 transition-opacity duration-300"
-        style={{ opacity: isRendering ? 0.5 : 1 }}
+        style={{ opacity: 1 }}
       />
     </div>
   );
