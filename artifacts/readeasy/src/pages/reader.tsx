@@ -20,14 +20,14 @@ export default function Reader() {
   const [, setLocation] = useLocation();
   const { getBook, updateBookProgress, updateBookMetadata } = useBooks();
   const { theme, cycleTheme, fontSize, changeFontSize } = useTheme();
-  
+
   const book = getBook(bookId || '');
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(book?.lastPage || 1);
   const [totalPages, setTotalPages] = useState(book?.totalPages || 1);
   const [showChrome, setShowChrome] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // AI and Discovery state
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [currentPageText, setCurrentPageText] = useState('');
@@ -48,7 +48,7 @@ export default function Reader() {
   // Load PDF
   useEffect(() => {
     if (!bookId) return;
-    
+
     const loadPdf = async () => {
       try {
         const bytes = await getPdfBytes(bookId);
@@ -56,11 +56,11 @@ export default function Reader() {
           setError("PDF file not found on device.");
           return;
         }
-        
+
         const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
         setPdfDoc(doc);
         setTotalPages(doc.numPages);
-        
+
         if (book && book.totalPages !== doc.numPages) {
           updateBookMetadata(bookId, { totalPages: doc.numPages });
         }
@@ -69,7 +69,7 @@ export default function Reader() {
         setError("Could not read this PDF file.");
       }
     };
-    
+
     loadPdf();
   }, [bookId, book, updateBookMetadata]);
 
@@ -88,7 +88,7 @@ export default function Reader() {
         currentPage === 1 &&
         bookId &&
         detectionAttemptedRef.current !== bookId &&
-        book?.author === 'Unknown Author' &&
+        (!book?.author || book?.author === 'Unknown Author' || book?.author === 'Unknown') &&
         text.trim().length >= 20;
 
       if (shouldDetect) {
@@ -159,7 +159,7 @@ export default function Reader() {
         setShowChrome(true);
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [totalPages]);
@@ -174,7 +174,7 @@ export default function Reader() {
     }
     setShowChrome((s) => !s);
   };
-  
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.changedTouches[0].screenX;
   };
@@ -224,16 +224,15 @@ export default function Reader() {
   return (
     <div className="relative min-h-[100dvh] w-full mx-auto md:max-w-4xl bg-background overflow-hidden flex flex-col shadow-2xl">
       {/* Top Chrome */}
-      <div 
-        className={`absolute top-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 transition-transform duration-300 ${
-          showChrome && !isFocused ? 'translate-y-0' : '-translate-y-full'
-        }`}
+      <div
+        className={`absolute top-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 transition-transform duration-300 ${showChrome && !isFocused ? 'translate-y-0' : '-translate-y-full'
+          }`}
       >
         <div className="h-14 px-2 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => setLocation('/')} className="rounded-full">
             <ChevronLeft size={24} />
           </Button>
-          
+
           <div className="flex-1 px-2 overflow-hidden flex flex-col items-center">
             <h1 className="font-serif font-medium text-sm truncate w-full text-center text-foreground">
               {book?.title || (pdfDoc ? 'Untitled book' : 'Loading...')}
@@ -242,7 +241,7 @@ export default function Reader() {
               {book?.author || ''}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={enterFocus} className="rounded-full text-foreground/70" aria-label="Focus mode">
               <Focus size={18} />
@@ -259,17 +258,16 @@ export default function Reader() {
       </div>
 
       {/* Main Reader Area */}
-      <div 
-        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative touch-pan-y"
-        onClick={toggleChrome}
+      <div
+        className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col relative" onClick={toggleChrome}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         <div className={`min-h-full flex flex-col items-center justify-center ${isFocused ? 'p-0' : 'px-1 py-2'}`}>
-          <PdfRenderer 
-            pdfDocument={pdfDoc} 
-            pageNumber={currentPage} 
-            scale={FONT_SCALE_MAP[fontSize]} 
+          <PdfRenderer
+            pdfDocument={pdfDoc}
+            pageNumber={currentPage}
+            scale={FONT_SCALE_MAP[fontSize]}
           />
         </div>
       </div>
@@ -298,21 +296,21 @@ export default function Reader() {
           {showFontPicker && (
             <div className="flex flex-col gap-2 p-2 bg-background/90 backdrop-blur-md rounded-full border border-border/50 shadow-lg">
               {(['small', 'medium', 'large', 'xlarge'] as const).map(size => (
-                <Button 
+                <Button
                   key={size}
-                  variant={fontSize === size ? 'default' : 'ghost'} 
-                  size="icon" 
-                  className="w-10 h-10 rounded-full" 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    changeFontSize(size); 
+                  variant={fontSize === size ? 'default' : 'ghost'}
+                  size="icon"
+                  className="w-10 h-10 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    changeFontSize(size);
                     setShowFocusControls(true);
                   }}
                 >
                   <span className={
-                    size === 'small' ? 'text-xs' : 
-                    size === 'medium' ? 'text-sm' : 
-                    size === 'large' ? 'text-base' : 'text-lg'
+                    size === 'small' ? 'text-xs' :
+                      size === 'medium' ? 'text-sm' :
+                        size === 'large' ? 'text-base' : 'text-lg'
                   }>A</span>
                 </Button>
               ))}
@@ -351,8 +349,8 @@ export default function Reader() {
             <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" />
           )}
         </Button>
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           className="rounded-full shadow-lg h-14 w-14 px-0 bg-primary hover:bg-primary/90 text-primary-foreground"
           onClick={(e) => {
             e.stopPropagation();
@@ -364,27 +362,26 @@ export default function Reader() {
       </div>
 
       {/* Bottom Chrome */}
-      <div 
-        className={`absolute bottom-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-t border-border/50 pb-safe transition-transform duration-300 ${
-          showChrome && !isFocused ? 'translate-y-0' : 'translate-y-full'
-        }`}
+      <div
+        className={`absolute bottom-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-t border-border/50 pb-safe transition-transform duration-300 ${showChrome && !isFocused ? 'translate-y-0' : 'translate-y-full'
+          }`}
       >
         <div className="h-16 px-4 flex items-center justify-between">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
             disabled={currentPage <= 1 || !pdfDoc}
             className="text-foreground/70"
           >
             Previous
           </Button>
-          
+
           <span className="text-sm font-medium font-serif text-muted-foreground">
             {currentPage} <span className="opacity-50">/</span> {totalPages}
           </span>
-          
-          <Button 
-            variant="ghost" 
+
+          <Button
+            variant="ghost"
             onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
             disabled={currentPage >= totalPages || !pdfDoc}
             className="text-foreground/70"
@@ -396,8 +393,8 @@ export default function Reader() {
 
       {/* Panels */}
       {bookId && pdfDoc && (
-        <AIPanel 
-          isOpen={isAIPanelOpen} 
+        <AIPanel
+          isOpen={isAIPanelOpen}
           onOpenChange={setIsAIPanelOpen}
           pdfDoc={pdfDoc}
           bookId={bookId}
@@ -405,7 +402,7 @@ export default function Reader() {
           currentPageText={currentPageText}
         />
       )}
-      
+
       {book && (
         <DiscoveryPanel
           isOpen={isDiscoveryOpen}
