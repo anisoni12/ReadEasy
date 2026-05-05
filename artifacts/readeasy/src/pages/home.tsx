@@ -36,7 +36,11 @@ export default function Home() {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const text = await extractTextFromPage(pdfDoc, 1);
+        const pagesToScan = Math.min(3, pdfDoc.numPages);
+        let text = '';
+        for (let i = 1; i <= pagesToScan; i++) {
+          text += await extractTextFromPage(pdfDoc, i) + ' ';
+        }
         const res = await fetch('/api/ai/detect-book', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -128,8 +132,7 @@ export default function Home() {
                     </div>
                     <div className="flex flex-col py-1 flex-1 min-w-0">
                       <h3 className="font-serif font-medium text-base text-foreground line-clamp-2 leading-snug">{book.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate mt-1">{book.author}</p>
-
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{book.author}</p>
                       <div className="mt-auto pt-4 flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{progress}% complete</span>

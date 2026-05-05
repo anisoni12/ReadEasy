@@ -13,7 +13,8 @@ import { ai } from "@workspace/integrations-gemini-ai";
 
 const router: IRouter = Router();
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-2.0-flash";
+const MODEL_SMART = "gemini-2.5-flash";
 const MAX_INPUT_CHARS = 60_000;
 
 function trimText(text: string): string {
@@ -34,9 +35,9 @@ async function generateText(prompt: string): Promise<string> {
   return text.trim();
 }
 
-async function generateJson<T>(prompt: string): Promise<T> {
+async function generateJson<T>(prompt: string, model = MODEL): Promise<T> {
   const response = await ai.models.generateContent({
-    model: MODEL,
+    model: model,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       maxOutputTokens: 8192,
@@ -90,7 +91,7 @@ router.post("/ai/vocabulary", async (req, res, next) => {
 - "meaningHindi": (only if the word is in Devanagari/Hindi) the meaning translated to English
 
 Only return the JSON, no markdown.${ctx}`;
-    const raw = await generateJson<unknown>(prompt);
+    const raw = await generateJson<Record<string, unknown>>(prompt, MODEL_SMART);
     const data = AiVocabularyResponse.parse(raw);
     res.json(data);
   } catch (err) {
@@ -117,7 +118,7 @@ If you cannot confidently identify a field, omit it (except title and author —
 
 Text:
 ${trimText(body.text)}`;
-    const raw = await generateJson<Record<string, unknown>>(prompt);
+    const raw = await generateJson<Record<string, unknown>>(prompt, MODEL_SMART);
     const cleaned = {
       title: typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : "Untitled",
       author: typeof raw.author === "string" && raw.author.trim() ? raw.author.trim() : "Unknown",
