@@ -83,30 +83,53 @@ export default function Reader() {
       if (cancelled) return;
       setCurrentPageText(text);
 
-      // Auto-detect book metadata once per book on the first page.
-      const shouldDetect =
+      // Only attempt detection if we are on the first page and need metadata
+      const needsDetection =
         currentPage === 1 &&
         bookId &&
         detectionAttemptedRef.current !== bookId &&
-        (!book?.author || book?.author === 'Unknown Author' || book?.author === 'Unknown') &&
-        text.trim().length >= 20;
+        (!book?.author || book?.author === 'Unknown Author' || book?.author === 'Unknown');
 
-      if (shouldDetect) {
-        detectionAttemptedRef.current = bookId;
-        try {
-          const res = await detectBook.mutateAsync({ data: { text: text.substring(0, 1000) } });
-          if (cancelled) return;
-          if (res && res.title && res.title !== 'Untitled') {
-            updateBookMetadata(bookId, {
-              title: res.title,
-              author: res.author || 'Unknown Author',
-            });
-            setTimeout(() => {
-              if (!cancelled) setIsDiscoveryOpen(true);
-            }, 2000);
+      if (needsDetection) {
+        // Try pages 1-3 to find enough text for detection
+        let combinedText = '';
+        for (let p = 1; p <= Math.min(3, pdfDoc.numPages); p++) {
+          const pageText = await extractTextFromPage(pdfDoc, p);
+          combinedText += ' ' + pageText;
+          if (combinedText.trim().length >= 100) break;
+        }
+
+        if (combinedText.trim().length >= 20) {
+          detectionAttemptedRef.current = bookId;
+          try {
+            const res = await detectBook.mutateAsync({ data: { text: combinedText.substring(0, 1000) } });
+            console.log('Detection result:', JSON.stringify(res));
+            if (cancelled) return;
+            if (res) {
+              const updates: Partial<{ title: string; author: string }> = {};
+
+              if (res.title && res.title !== 'Untitled') {
+                updates.title = res.title;
+              }
+
+              if (res.author && res.author !== 'Unknown' && res.author !== 'Unknown Author') {
+                updates.author = res.author;
+              }
+
+              if (Object.keys(updates).length > 0) {
+                console.log('Updating metadata with:', updates);
+                updateBookMetadata(bookId, updates);
+
+                setTimeout(() => {
+                  if (!cancelled) setIsDiscoveryOpen(true);
+                }, 2000);
+              } else {
+                console.log('AI returned generic/unknown results, keeping original defaults.');
+              }
+            }
+          } catch (err) {
+            console.error("Detection failed", err);
           }
-        } catch (err) {
-          console.error("Detection failed", err);
         }
       }
     };

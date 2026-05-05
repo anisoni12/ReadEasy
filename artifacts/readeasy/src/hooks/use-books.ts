@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { savePdfBytes, getPdfBytes, deletePdfBytes } from '../lib/idb';
+import { savePdfBytes, deletePdfBytes } from '../lib/idb';
 
 export interface Book {
   id: string;
@@ -9,7 +9,7 @@ export interface Book {
   lastPage: number;
   addedAt: number;
   lastReadAt: number;
-  coverImage?: string; // base64 data url of first page
+  coverImage?: string;
 }
 
 const BOOKS_KEY = 'readeasy:books';
@@ -26,27 +26,32 @@ function readBooksFromStorage(): Book[] {
   }
 }
 
+const persist = (next: Book[]) => {
+  try {
+    localStorage.setItem(BOOKS_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event('readeasy:books-updated'));
+  } catch (e) {
+    console.error('Failed to persist books', e);
+  }
+};
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(() => readBooksFromStorage());
 
-  // Sync across tabs / hooks
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === BOOKS_KEY) {
         setBooks(readBooksFromStorage());
       }
     };
+    const onLocalUpdate = () => setBooks(readBooksFromStorage());
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('readeasy:books-updated', onLocalUpdate);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('readeasy:books-updated', onLocalUpdate);
+    };
   }, []);
-
-  const persist = (next: Book[]) => {
-    try {
-      localStorage.setItem(BOOKS_KEY, JSON.stringify(next));
-    } catch (e) {
-      console.error('Failed to persist books', e);
-    }
-  };
 
   const addBook = useCallback(async (
     id: string,
@@ -55,16 +60,12 @@ export function useBooks() {
   ) => {
     const buffer = await file.arrayBuffer();
     await savePdfBytes(id, buffer);
-
     const newBook: Book = {
       ...metadata,
       id,
       addedAt: Date.now(),
       lastReadAt: Date.now(),
     };
-
-    // Write to localStorage SYNCHRONOUSLY first so navigation can read it immediately,
-    // even if this component unmounts before React flushes the state updater.
     const current = readBooksFromStorage();
     const updated = [newBook, ...current.filter((b) => b.id !== id)];
     persist(updated);
