@@ -391,25 +391,30 @@ export default function Reader() {
       >
         <div className="h-16 px-4 flex items-center justify-between">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
             disabled={currentPage <= 1 || !pdfDoc}
-            className="text-foreground/70"
+            className="rounded-full px-5 h-9 text-sm font-medium border-border/60"
           >
-            Previous
+            ← Prev
           </Button>
 
-          <span className="text-sm font-medium font-serif text-muted-foreground">
-            {currentPage} <span className="opacity-50">/</span> {totalPages}
-          </span>
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-serif font-semibold text-foreground/80">
+              {currentPage} <span className="text-muted-foreground font-normal">/ {totalPages}</span>
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {Math.round((currentPage / totalPages) * 100)}%
+            </span>
+          </div>
 
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
             disabled={currentPage >= totalPages || !pdfDoc}
-            className="text-foreground/70"
+            className="rounded-full px-5 h-9 text-sm font-medium border-border/60"
           >
-            Next
+            Next →
           </Button>
         </div>
       </div>

@@ -21,7 +21,7 @@ interface AIPanelProps {
 
 export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, currentPageText }: AIPanelProps) {
   const [activeTab, setActiveTab] = useState('summary');
-  
+
   // Summary State
   const [summaryRange, setSummaryRange] = useState(1); // pages to summarize around current
   const [summaryResult, setSummaryResult] = useState('');
@@ -47,7 +47,7 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
   const handleSummarize = async () => {
     const start = Math.max(1, currentPage);
     const end = Math.min(pdfDoc.numPages, currentPage + summaryRange - 1);
-    
+
     // Check cache
     const cacheKey = `readeasy:summary:${bookId}:${start}-${end}`;
     const cached = localStorage.getItem(cacheKey);
@@ -86,11 +86,11 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
     if (!vocabInput.trim()) return;
     try {
       setVocabResult(null);
-      const res = await vocabulary.mutateAsync({ 
-        data: { 
+      const res = await vocabulary.mutateAsync({
+        data: {
           word: vocabInput,
           context: currentPageText.substring(0, 200) // Brief context
-        } 
+        }
       });
       if (res) {
         setVocabResult(res);
@@ -106,7 +106,7 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
         <div className="mx-auto w-12 h-1.5 rounded-full bg-border/80 mt-4 mb-2" />
         <DrawerHeader className="text-left px-6 pb-2">
           <DrawerTitle className="font-serif text-2xl flex items-center gap-2 text-foreground">
-            <Sparkles className="text-primary w-5 h-5" /> 
+            <Sparkles className="text-primary w-5 h-5" />
             Reading Assistant
           </DrawerTitle>
           <DrawerDescription className="text-muted-foreground font-medium">
@@ -126,29 +126,39 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
               {/* SUMMARY TAB */}
               <TabsContent value="summary" className="mt-0 h-full flex flex-col gap-4 focus-visible:outline-none">
                 <div className="flex items-center gap-2 mb-2">
-                  <Button 
-                    variant={summaryRange === 1 ? 'secondary' : 'ghost'} 
-                    size="sm" 
+                  <Button
+                    variant={summaryRange === 1 ? 'secondary' : 'ghost'}
+                    size="sm"
                     onClick={() => setSummaryRange(1)}
                     className="rounded-full"
                   >
                     This Page
                   </Button>
-                  <Button 
-                    variant={summaryRange === 5 ? 'secondary' : 'ghost'} 
-                    size="sm" 
+                  <Button
+                    variant={summaryRange === 5 ? 'secondary' : 'ghost'}
+                    size="sm"
                     onClick={() => setSummaryRange(5)}
                     className="rounded-full"
                   >
                     Next 5 Pages
                   </Button>
                 </div>
-                
+
                 {!summaryResult && !summarize.isPending && (
-                  <Button onClick={handleSummarize} className="w-full rounded-xl h-12 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary border-0 shadow-none font-semibold">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Summary
-                  </Button>
+                  <div className="flex flex-col gap-4">
+                    <Button onClick={handleSummarize} className="w-full rounded-xl h-12 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary border-0 shadow-none font-semibold">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Summary
+                    </Button>
+                    <div className="p-4 rounded-2xl bg-secondary/40 border border-border/40 flex flex-col gap-3">
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">How to use</p>
+                      <div className="flex flex-col gap-2 text-sm text-foreground/70 font-serif">
+                        <p>📖 <span className="font-medium text-foreground/80">Summary</span> — Get the key ideas from this page or the next 5 pages.</p>
+                        <p>💬 <span className="font-medium text-foreground/80">Explain</span> — Paste any confusing passage and get a simple explanation.</p>
+                        <p>📚 <span className="font-medium text-foreground/80">Vocabulary</span> — Look up any word for its meaning, example, and synonyms.</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {summarize.isPending && (
@@ -177,14 +187,14 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
               <TabsContent value="explain" className="mt-0 h-full flex flex-col gap-4 focus-visible:outline-none">
                 <div className="flex flex-col gap-3">
                   <label className="text-sm font-medium text-muted-foreground">Paste confusing text here:</label>
-                  <Textarea 
+                  <Textarea
                     value={explainInput}
                     onChange={e => setExplainInput(e.target.value)}
                     placeholder="Paste a paragraph that's hard to understand..."
                     className="min-h-[120px] rounded-xl bg-secondary/30 border-border/50 resize-none font-serif text-base"
                   />
-                  <Button 
-                    onClick={handleExplain} 
+                  <Button
+                    onClick={handleExplain}
                     disabled={!explainInput.trim() || explain.isPending}
                     className="w-full rounded-xl h-12 bg-primary hover:bg-primary/90 text-white font-semibold"
                   >
@@ -214,15 +224,15 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
               {/* VOCABULARY TAB */}
               <TabsContent value="vocab" className="mt-0 h-full flex flex-col gap-4 focus-visible:outline-none">
                 <div className="flex gap-2">
-                  <Input 
+                  <Input
                     value={vocabInput}
                     onChange={e => setVocabInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleVocab()}
                     placeholder="Enter a word to look up..."
                     className="rounded-xl h-12 bg-secondary/30 border-border/50 font-serif text-lg px-4"
                   />
-                  <Button 
-                    onClick={handleVocab} 
+                  <Button
+                    onClick={handleVocab}
                     disabled={!vocabInput.trim() || vocabulary.isPending}
                     className="rounded-xl h-12 px-6 bg-primary hover:bg-primary/90 text-white"
                   >
@@ -248,7 +258,7 @@ export function AIPanel({ isOpen, onOpenChange, pdfDoc, bookId, currentPage, cur
                         )}
                       </h3>
                     </div>
-                    
+
                     <div>
                       <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">Meaning</h4>
                       <p className="font-serif text-lg text-foreground/90 leading-snug">{vocabResult.meaning}</p>

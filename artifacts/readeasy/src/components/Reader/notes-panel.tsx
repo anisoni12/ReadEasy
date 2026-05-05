@@ -123,9 +123,8 @@ export function NotesPanel({ isOpen, onOpenChange, bookId, currentPage, onJumpTo
                     type="button"
                     aria-label={c.label}
                     onClick={() => setDraftColor(c.value)}
-                    className={`w-6 h-6 rounded-full ${c.swatchClass} ring-offset-2 ring-offset-card transition ${
-                      draftColor === c.value ? 'ring-2 ring-foreground/60' : 'hover:scale-110'
-                    }`}
+                    className={`w-6 h-6 rounded-full ${c.swatchClass} ring-offset-2 ring-offset-card transition ${draftColor === c.value ? 'ring-2 ring-foreground/60' : 'hover:scale-110'
+                      }`}
                   />
                 ))}
               </div>
@@ -192,8 +191,7 @@ function NoteCard({
           <Button
             variant="ghost"
             size="icon"
-            className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 text-foreground/60 hover:text-destructive"
-            onClick={onDelete}
+            className="w-7 h-7 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 text-foreground/60 hover:text-destructive" onClick={onDelete}
             aria-label="Delete note"
           >
             <Trash2 size={13} />

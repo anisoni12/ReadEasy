@@ -36,17 +36,23 @@ async function generateText(prompt: string): Promise<string> {
 }
 
 async function generateJson<T>(prompt: string, model = MODEL): Promise<T> {
-  const response = await ai.models.generateContent({
-    model: model,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      maxOutputTokens: 8192,
-      responseMimeType: "application/json",
-    },
-  });
-  const text = response.text;
-  if (!text) throw new Error("Empty response from Gemini");
-  return JSON.parse(text) as T;
+  try {
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
+    });
+    const text = response.text;
+    if (!text) throw new Error("Empty response from Gemini");
+    return JSON.parse(text) as T;
+  } catch (err: any) {
+    // If quota exceeded on smart model, fall back to default model
+    if (model !== MODEL && err?.message?.includes('429')) {
+      console.warn(`Quota exceeded for ${model}, falling back to ${MODEL}`);
+      return generateJson<T>(prompt, MODEL);
+    }
+    throw err;
+  }
 }
 
 router.post("/ai/summarize", async (req, res, next) => {
