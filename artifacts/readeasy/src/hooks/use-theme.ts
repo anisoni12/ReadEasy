@@ -10,23 +10,27 @@ export const FONT_SCALE_MAP: Record<FontSize, number> = {
   xlarge: 1.5,
 };
 
+function readInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'sepia';
+  const saved = localStorage.getItem('readeasy:theme') as Theme | null;
+  if (saved === 'light' || saved === 'dark' || saved === 'sepia') return saved;
+  if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+  return 'sepia'; // Calmer default than 'light' for a reading app
+}
+
+function readInitialFontSize(): FontSize {
+  if (typeof window === 'undefined') return 'medium';
+  const saved = localStorage.getItem('readeasy:fontsize') as FontSize | null;
+  if (saved === 'small' || saved === 'medium' || saved === 'large' || saved === 'xlarge') {
+    return saved;
+  }
+  return 'medium';
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [fontSize, setFontSize] = useState<FontSize>('medium');
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('readeasy:theme') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
-    }
-
-    const savedFontSize = localStorage.getItem('readeasy:fontsize') as FontSize;
-    if (savedFontSize) {
-      setFontSize(savedFontSize);
-    }
-  }, []);
+  // Lazy initial state avoids a flash of the wrong theme on mount.
+  const [theme, setTheme] = useState<Theme>(readInitialTheme);
+  const [fontSize, setFontSize] = useState<FontSize>(readInitialFontSize);
 
   useEffect(() => {
     const root = document.documentElement;

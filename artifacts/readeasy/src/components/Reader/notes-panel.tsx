@@ -92,7 +92,7 @@ export function NotesPanel({ isOpen, onOpenChange, bookId, currentPage, onJumpTo
 
         <DrawerBody className="px-6 py-4 flex-1 overflow-hidden flex flex-col">
           {isComposing && (
-            <div className="border border-border rounded-xl p-4 mb-4 bg-card flex flex-col gap-3 flex-shrink-0">
+            <div className="border border-border rounded-xl p-4 mb-4 bg-card flex flex-col gap-3 shrink-0">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   New on page {currentPage}
@@ -106,13 +106,13 @@ export function NotesPanel({ isOpen, onOpenChange, bookId, currentPage, onJumpTo
                 value={draftHighlight}
                 onChange={(e) => setDraftHighlight(e.target.value)}
                 placeholder="Paste or type the passage to highlight (optional)"
-                className="text-sm min-h-[64px] font-serif"
+                className="text-sm min-h-16 font-serif"
               />
               <Textarea
                 value={draftText}
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder="Your note or thought..."
-                className="text-sm min-h-[64px]"
+                className="text-sm min-h-16"
               />
 
               <div className="flex items-center gap-2">

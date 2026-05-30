@@ -11,19 +11,15 @@
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
-    "@workspace/db": "workspace:*",
     "@workspace/integrations-gemini-ai": "workspace:*",
-    "cookie-parser": "^1.4.7",
     "cors": "^2",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "catalog:",
     "express": "^5",
     "pino": "^9",
     "zod": "catalog:",
     "pino-http": "^10"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",

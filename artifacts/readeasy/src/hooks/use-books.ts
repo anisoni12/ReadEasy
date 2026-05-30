@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { savePdfBytes, deletePdfBytes } from '../lib/idb';
+import { savePdfBytes, deletePdfBytes, saveThumbnail, getThumbnail } from '../lib/idb';
 
 export interface Book {
   id: string;
@@ -9,7 +9,37 @@ export interface Book {
   lastPage: number;
   addedAt: number;
   lastReadAt: number;
+  /** @deprecated Stored in IndexedDB now via {@link useThumbnail}. Kept for migration. */
   coverImage?: string;
+}
+
+/**
+ * Loads a book's cover thumbnail from IndexedDB.
+ * Falls back to the legacy `coverImage` field on the book record.
+ */
+export function useThumbnail(bookId: string | undefined, fallback?: string): string | undefined {
+  const [src, setSrc] = useState<string | undefined>(fallback);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!bookId) {
+      setSrc(undefined);
+      return;
+    }
+    getThumbnail(bookId)
+      .then((value) => {
+        if (cancelled) return;
+        setSrc(value || fallback);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(fallback);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookId, fallback]);
+
+  return src;
 }
 
 const BOOKS_KEY = 'readeasy:books';
@@ -60,8 +90,19 @@ export function useBooks() {
   ) => {
     const buffer = await file.arrayBuffer();
     await savePdfBytes(id, buffer);
+
+    // Persist thumbnail to IndexedDB to avoid bloating localStorage.
+    const { coverImage, ...rest } = metadata;
+    if (coverImage) {
+      try {
+        await saveThumbnail(id, coverImage);
+      } catch (err) {
+        console.warn('Failed to persist thumbnail', err);
+      }
+    }
+
     const newBook: Book = {
-      ...metadata,
+      ...rest,
       id,
       addedAt: Date.now(),
       lastReadAt: Date.now(),
@@ -75,6 +116,8 @@ export function useBooks() {
 
   const updateBookProgress = useCallback((id: string, lastPage: number) => {
     const current = readBooksFromStorage();
+    const target = current.find((b) => b.id === id);
+    if (!target || target.lastPage === lastPage) return; // skip redundant writes
     const updated = current.map((b) =>
       b.id === id ? { ...b, lastPage, lastReadAt: Date.now() } : b
     );

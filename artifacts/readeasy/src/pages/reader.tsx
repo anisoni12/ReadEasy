@@ -1,19 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type MouseEvent, type TouchEvent } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useBooks } from '@/hooks/use-books';
 import { getPdfBytes } from '@/lib/idb';
 import { pdfjsLib, extractTextFromPage } from '@/lib/pdf-utils';
 import { PdfRenderer } from '@/components/Reader/pdf-renderer';
-import { useTheme, FONT_SCALE_MAP } from '@/hooks/use-theme';
+import { useTheme, FONT_SCALE_MAP, type FontSize } from '@/hooks/use-theme';
 import { AIPanel } from '@/components/Reader/ai-panel';
 import { DiscoveryPanel } from '@/components/Reader/discovery-panel';
 import { NotesPanel } from '@/components/Reader/notes-panel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle, Highlighter, Focus, X as XIcon } from 'lucide-react';
+import { ChevronLeft, Moon, Sun, Coffee, Type, Sparkles, AlertCircle, Highlighter, Focus, X as XIcon, Compass } from 'lucide-react';
 import { useNotes } from '@/hooks/use-notes';
 import { useFocusMode } from '@/hooks/use-focus-mode';
 import { useAiDetectBook } from '@workspace/api-client-react';
+
+const FONT_SIZES: readonly FontSize[] = ['small', 'medium', 'large', 'xlarge'] as const;
 
 export default function Reader() {
   const { bookId } = useParams();
@@ -48,97 +50,116 @@ export default function Reader() {
   // Load PDF
   useEffect(() => {
     if (!bookId) return;
+    let cancelled = false;
+    let loadedDoc: pdfjsLib.PDFDocumentProxy | null = null;
 
     const loadPdf = async () => {
       try {
         const bytes = await getPdfBytes(bookId);
+        if (cancelled) return;
         if (!bytes) {
           setError("PDF file not found on device.");
           return;
         }
 
         const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+        if (cancelled) {
+          // Component unmounted while we were loading — release native resources.
+          doc.destroy();
+          return;
+        }
+        loadedDoc = doc;
         setPdfDoc(doc);
         setTotalPages(doc.numPages);
 
-        if (book && book.totalPages !== doc.numPages) {
+        // Use the freshest book record from storage to avoid stale-closure writes.
+        const fresh = bookId ? getBook(bookId) : undefined;
+        if (fresh && fresh.totalPages !== doc.numPages) {
           updateBookMetadata(bookId, { totalPages: doc.numPages });
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Error loading PDF", err);
         setError("Could not read this PDF file.");
       }
     };
 
     loadPdf();
-  }, [bookId, book, updateBookMetadata]);
-
-  // Extract text and detect book
-  useEffect(() => {
-    if (!pdfDoc) return;
-
-    let cancelled = false;
-    const extractAndDetect = async () => {
-      const text = await extractTextFromPage(pdfDoc, currentPage);
-      if (cancelled) return;
-      setCurrentPageText(text);
-
-      // Only attempt detection if we are on the first page and need metadata
-      const needsDetection =
-        currentPage === 1 &&
-        bookId &&
-        detectionAttemptedRef.current !== bookId &&
-        (!book?.author || book?.author === 'Unknown Author' || book?.author === 'Unknown');
-
-      if (needsDetection) {
-        // Try pages 1-3 to find enough text for detection
-        let combinedText = '';
-        for (let p = 1; p <= Math.min(3, pdfDoc.numPages); p++) {
-          const pageText = await extractTextFromPage(pdfDoc, p);
-          combinedText += ' ' + pageText;
-          if (combinedText.trim().length >= 100) break;
-        }
-
-        if (combinedText.trim().length >= 20) {
-          detectionAttemptedRef.current = bookId;
-          try {
-            const res = await detectBook.mutateAsync({ data: { text: combinedText.substring(0, 1000) } });
-            console.log('Detection result:', JSON.stringify(res));
-            if (cancelled) return;
-            if (res) {
-              const updates: Partial<{ title: string; author: string }> = {};
-
-              if (res.title && res.title !== 'Untitled') {
-                updates.title = res.title;
-              }
-
-              if (res.author && res.author !== 'Unknown' && res.author !== 'Unknown Author') {
-                updates.author = res.author;
-              }
-
-              if (Object.keys(updates).length > 0) {
-                console.log('Updating metadata with:', updates);
-                updateBookMetadata(bookId, updates);
-
-                setTimeout(() => {
-                  if (!cancelled) setIsDiscoveryOpen(true);
-                }, 2000);
-              } else {
-                console.log('AI returned generic/unknown results, keeping original defaults.');
-              }
-            }
-          } catch (err) {
-            console.error("Detection failed", err);
-          }
-        }
+    return () => {
+      cancelled = true;
+      if (loadedDoc) {
+        loadedDoc.destroy().catch(() => {});
       }
     };
+    // Intentionally exclude `book` and `getBook` so we don't reload the PDF on
+    // every metadata change. The latest values are read inside loadPdf.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, updateBookMetadata]);
 
-    extractAndDetect();
+  // Extract page text for AI features.
+  useEffect(() => {
+    if (!pdfDoc) return;
+    let cancelled = false;
+    extractTextFromPage(pdfDoc, currentPage)
+      .then((text) => {
+        if (!cancelled) setCurrentPageText(text);
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentPageText('');
+      });
     return () => {
       cancelled = true;
     };
-  }, [pdfDoc, currentPage, book?.author, bookId, updateBookMetadata, detectBook]);
+  }, [pdfDoc, currentPage]);
+
+  // One-shot book metadata detection on first open.
+  // Discovery panel is opt-in (user clicks Compass icon) — never auto-opens.
+  useEffect(() => {
+    if (!pdfDoc || !bookId) return;
+    if (currentPage !== 1) return;
+    if (detectionAttemptedRef.current === bookId) return;
+
+    const author = book?.author;
+    const needsDetection = !author || author === 'Unknown Author' || author === 'Unknown';
+    if (!needsDetection) return;
+
+    let cancelled = false;
+    detectionAttemptedRef.current = bookId;
+
+    const run = async () => {
+      let combinedText = '';
+      for (let p = 1; p <= Math.min(3, pdfDoc.numPages); p++) {
+        if (cancelled) return;
+        const pageText = await extractTextFromPage(pdfDoc, p);
+        combinedText += ' ' + pageText;
+        if (combinedText.trim().length >= 100) break;
+      }
+      if (cancelled || combinedText.trim().length < 20) return;
+
+      try {
+        const res = await detectBook.mutateAsync({ data: { text: combinedText.substring(0, 1000) } });
+        if (cancelled || !res) return;
+
+        const updates: Partial<{ title: string; author: string }> = {};
+        if (res.title && res.title !== 'Untitled') updates.title = res.title;
+        if (res.author && res.author !== 'Unknown' && res.author !== 'Unknown Author') {
+          updates.author = res.author;
+        }
+        if (Object.keys(updates).length > 0) {
+          updateBookMetadata(bookId, updates);
+        }
+      } catch (err) {
+        // Allow a future retry on remount if detection failed.
+        detectionAttemptedRef.current = null;
+        if (!cancelled) console.error('Detection failed', err);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, currentPage, bookId, book?.author, updateBookMetadata, detectBook]);
 
   // Save progress
   useEffect(() => {
@@ -198,11 +219,11 @@ export default function Reader() {
     setShowChrome((s) => !s);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent) => {
     touchStartX.current = e.changedTouches[0].screenX;
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
     if (touchStartX.current === null) return;
     const touchEndX = e.changedTouches[0].screenX;
     const diff = touchStartX.current - touchEndX;
@@ -224,14 +245,13 @@ export default function Reader() {
   };
 
   const cycleFontSize = () => {
-    const sizes: typeof fontSize[] = ['small', 'medium', 'large', 'xlarge'];
-    const idx = sizes.indexOf(fontSize);
-    changeFontSize(sizes[(idx + 1) % sizes.length]);
+    const idx = FONT_SIZES.indexOf(fontSize);
+    changeFontSize(FONT_SIZES[(idx + 1) % FONT_SIZES.length]);
   };
 
   if (error) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-background text-center gap-4">
+      <div className="min-h-dvh flex flex-col items-center justify-center p-6 bg-background text-center gap-4">
         <AlertCircle size={48} className="text-destructive opacity-80" />
         <h2 className="font-serif text-xl font-semibold">Unable to open book</h2>
         <p className="text-muted-foreground">{error}</p>
@@ -245,7 +265,7 @@ export default function Reader() {
   const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Coffee;
 
   return (
-    <div className="relative min-h-[100dvh] w-full mx-auto md:max-w-4xl bg-background overflow-hidden flex flex-col shadow-2xl">
+    <div className="relative min-h-dvh w-full mx-auto md:max-w-4xl bg-background overflow-hidden flex flex-col shadow-2xl">
       {/* Top Chrome */}
       <div
         className={`absolute top-0 inset-x-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 transition-transform duration-300 ${showChrome && !isFocused ? 'translate-y-0' : '-translate-y-full'
@@ -266,6 +286,15 @@ export default function Reader() {
           </div>
 
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsDiscoveryOpen(true)}
+              className="rounded-full text-foreground/70"
+              aria-label="Similar books discovery"
+            >
+              <Compass size={18} />
+            </Button>
             <Button variant="ghost" size="icon" onClick={enterFocus} className="rounded-full text-foreground/70" aria-label="Focus mode">
               <Focus size={18} />
             </Button>
@@ -355,33 +384,37 @@ export default function Reader() {
         </div>
       )}
 
-      {/* Floating action buttons */}
+      {/* Consolidated Companion Menu (Notes & AI Assistant) */}
       <div className={`absolute bottom-20 right-6 z-10 flex flex-col gap-3 transition-all duration-300 ${showChrome && !isFocused ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <Button
-          size="lg"
-          variant="secondary"
-          className="rounded-full shadow-lg h-12 w-12 px-0 relative"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsNotesOpen(true);
-          }}
-          aria-label="Highlights and notes"
-        >
-          <Highlighter size={20} className="text-amber-600 dark:text-amber-400" />
-          {pageHasNotes && (
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500" />
-          )}
-        </Button>
-        <Button
-          size="lg"
-          className="rounded-full shadow-lg h-14 w-14 px-0 bg-primary hover:bg-primary/90 text-primary-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsAIPanelOpen(true);
-          }}
-        >
-          <Sparkles size={24} className="fill-primary-foreground/20" />
-        </Button>
+        <div className="flex flex-col gap-2 p-1.5 bg-background/90 backdrop-blur-md rounded-2xl border border-border/60 shadow-lg">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-xl h-11 w-11 relative hover:bg-secondary/50 text-foreground/80 hover:text-amber-600 dark:hover:text-amber-400"
+            onClick={(e: MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              setIsNotesOpen(true);
+            }}
+            aria-label="Highlights and notes"
+          >
+            <Highlighter size={18} />
+            {pageHasNotes && (
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-xl h-11 w-11 hover:bg-secondary/50 text-foreground/80 hover:text-primary"
+            onClick={(e: MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              setIsAIPanelOpen(true);
+            }}
+            aria-label="AI Assistant"
+          >
+            <Sparkles size={18} />
+          </Button>
+        </div>
       </div>
 
       {/* Bottom Chrome */}
